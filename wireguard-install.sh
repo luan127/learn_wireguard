@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Secure WireGuard server installer
-# https://github.com/angristan/wireguard-install
 
 RED='\033[0;31m'
 ORANGE='\033[0;33m'
@@ -67,33 +65,33 @@ function checkOS() {
 	fi
 }
 
-function getHomeDirForClient() {
-	local CLIENT_NAME=$1
+# function getHomeDirForClient() {
+# 	local CLIENT_NAME=$1
 
-	if [ -z "${CLIENT_NAME}" ]; then
-		echo "Error: getHomeDirForClient() requires a client name as argument"
-		exit 1
-	fi
+# 	if [ -z "${CLIENT_NAME}" ]; then
+# 		echo "Error: getHomeDirForClient() requires a client name as argument"
+# 		exit 1
+# 	fi
 
-	# Home directory of the user, where the client configuration will be written
-	if [ -e "/home/${CLIENT_NAME}" ]; then
-		# if $1 is a user name
-		HOME_DIR="/home/${CLIENT_NAME}"
-	elif [ "${SUDO_USER}" ]; then
-		# if not, use SUDO_USER
-		if [ "${SUDO_USER}" == "root" ]; then
-			# If running sudo as root
-			HOME_DIR="/root"
-		else
-			HOME_DIR="/home/${SUDO_USER}"
-		fi
-	else
-		# if not SUDO_USER, use /root
-		HOME_DIR="/root"
-	fi
+# 	# Home directory of the user, where the client configuration will be written
+# 	if [ -e "/home/${CLIENT_NAME}" ]; then
+# 		# if $1 is a user name
+		
+# 	elif [ "${SUDO_USER}" ]; then
+# 		# if not, use SUDO_USER
+# 		if [ "${SUDO_USER}" == "root" ]; then
+# 			# If running sudo as root
+# 			HOME_DIR="/root"
+# 		else
+# 			HOME_DIR="/home/${SUDO_USER}"
+# 		fi
+# 	else
+# 		# if not SUDO_USER, use /root
+# 		HOME_DIR="/root"
+# 	fi
 
-	echo "$HOME_DIR"
-}
+# 	echo "$HOME_DIR"
+# }
 
 function initialCheck() {
 	isRoot
@@ -102,20 +100,11 @@ function initialCheck() {
 }
 
 function installQuestions() {
-	echo "Welcome to the WireGuard installer!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
-	echo ""
-	echo "I need to ask you a few questions before starting the setup."
-	echo "You can keep the default options and just press enter if you are ok with them."
-	echo ""
-
+	echo "Chương trình cài đặt wireguard Server"
+	
 	# Detect public IPv4 or IPv6 address and pre-fill for the user
 	SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
-	if [[ -z ${SERVER_PUB_IP} ]]; then
-		# Detect public IPv6 address
-		SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
-	fi
-	read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" SERVER_PUB_IP
+	read -rp "Địa chỉ IPv4 public: " -e -i "${SERVER_PUB_IP}" SERVER_PUB_IP
 
 	# Detect public interface and pre-fill for the user
 	SERVER_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
@@ -123,47 +112,31 @@ function installQuestions() {
 		read -rp "Public interface: " -e -i "${SERVER_NIC}" SERVER_PUB_NIC
 	done
 
-	until [[ ${SERVER_WG_NIC} =~ ^[a-zA-Z0-9_]+$ && ${#SERVER_WG_NIC} -lt 16 ]]; do
-		read -rp "WireGuard interface name: " -e -i wg0 SERVER_WG_NIC
-	done
+	SERVER_WG_NIC="wg0"
 
 	until [[ ${SERVER_WG_IPV4} =~ ^([0-9]{1,3}\.){3} ]]; do
-		read -rp "Server WireGuard IPv4: " -e -i 10.66.66.1 SERVER_WG_IPV4
-	done
-
-	until [[ ${SERVER_WG_IPV6} =~ ^([a-f0-9]{1,4}:){3,4}: ]]; do
-		read -rp "Server WireGuard IPv6: " -e -i fd42:42:42::1 SERVER_WG_IPV6
+		read -rp "Địa chỉ mạng mật của WireGuard IPv4: " -e -i 10.10.77.1 SERVER_WG_IPV4
 	done
 
 	# Generate random number within private ports range
-	RANDOM_PORT=$(shuf -i49152-65535 -n1)
-	until [[ ${SERVER_PORT} =~ ^[0-9]+$ ]] && [ "${SERVER_PORT}" -ge 1 ] && [ "${SERVER_PORT}" -le 65535 ]; do
-		read -rp "Server WireGuard port [1-65535]: " -e -i "${RANDOM_PORT}" SERVER_PORT
-	done
+	SERVER_PORT="51280"
+	read -rp "Server WireGuard port: " -e -i "${SERVER_PORT}" SERVER_PORT
 
 	# Adguard DNS by default
 	until [[ ${CLIENT_DNS_1} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-		read -rp "First DNS resolver to use for the clients: " -e -i 1.1.1.1 CLIENT_DNS_1
+		read -rp "DNS server 01: " -e -i 1.1.1.1 CLIENT_DNS_1
 	done
 	until [[ ${CLIENT_DNS_2} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
-		read -rp "Second DNS resolver to use for the clients (optional): " -e -i 1.0.0.1 CLIENT_DNS_2
+		read -rp "DNS server 02: " -e -i 8.8.8.8 CLIENT_DNS_2
 		if [[ ${CLIENT_DNS_2} == "" ]]; then
 			CLIENT_DNS_2="${CLIENT_DNS_1}"
 		fi
 	done
 
-	until [[ ${ALLOWED_IPS} =~ ^.+$ ]]; do
-		echo -e "\nWireGuard uses a parameter called AllowedIPs to determine what is routed over the VPN."
-		read -rp "Allowed IPs list for generated clients (leave default to route everything): " -e -i '0.0.0.0/0,::/0' ALLOWED_IPS
-		if [[ ${ALLOWED_IPS} == "" ]]; then
-			ALLOWED_IPS="0.0.0.0/0,::/0"
-		fi
-	done
-
+	ALLOWED_IPS="10.10.77.0/24"
+	read -rp "Dải mạng mật được phép đi qua VPN: " -e -i "${ALLOWED_IPS}" ALLOWED_IPS
 	echo ""
-	echo "Okay, that was all I needed. We are ready to setup your WireGuard server now."
-	echo "You will be able to generate a client at the end of the installation."
-	read -n1 -r -p "Press any key to continue..."
+	read -n1 -r -p "Ấn phím bất kỳ để tiếp tục..."
 }
 
 function installWireGuard() {
@@ -208,6 +181,7 @@ function installWireGuard() {
 
 	# Make sure the directory exists (this does not seem the be the case on fedora)
 	mkdir /etc/wireguard >/dev/null 2>&1
+	mkdir /etc/wireguard/clients 2>&1
 
 	chmod 600 -R /etc/wireguard/
 
@@ -219,7 +193,6 @@ function installWireGuard() {
 SERVER_PUB_NIC=${SERVER_PUB_NIC}
 SERVER_WG_NIC=${SERVER_WG_NIC}
 SERVER_WG_IPV4=${SERVER_WG_IPV4}
-SERVER_WG_IPV6=${SERVER_WG_IPV6}
 SERVER_PORT=${SERVER_PORT}
 SERVER_PRIV_KEY=${SERVER_PRIV_KEY}
 SERVER_PUB_KEY=${SERVER_PUB_KEY}
@@ -229,7 +202,7 @@ ALLOWED_IPS=${ALLOWED_IPS}" >/etc/wireguard/params
 
 	# Add server interface
 	echo "[Interface]
-Address = ${SERVER_WG_IPV4}/24,${SERVER_WG_IPV6}/64
+Address = ${SERVER_WG_IPV4}/24
 ListenPort = ${SERVER_PORT}
 PrivateKey = ${SERVER_PRIV_KEY}" >"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
@@ -239,19 +212,30 @@ PrivateKey = ${SERVER_PRIV_KEY}" >"/etc/wireguard/${SERVER_WG_NIC}.conf"
 		echo "PostUp = firewall-cmd --add-port ${SERVER_PORT}/udp && firewall-cmd --add-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --add-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'
 PostDown = firewall-cmd --remove-port ${SERVER_PORT}/udp && firewall-cmd --remove-rich-rule='rule family=ipv4 source address=${FIREWALLD_IPV4_ADDRESS}/24 masquerade' && firewall-cmd --remove-rich-rule='rule family=ipv6 source address=${FIREWALLD_IPV6_ADDRESS}/24 masquerade'" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 	else
-		echo "PostUp = iptables -I INPUT -p udp --dport ${SERVER_PORT} -j ACCEPT
-PostUp = iptables -I FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT
-PostUp = iptables -I FORWARD -i ${SERVER_WG_NIC} -j ACCEPT
-PostUp = iptables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE
-PostUp = ip6tables -I FORWARD -i ${SERVER_WG_NIC} -j ACCEPT
-PostUp = ip6tables -t nat -A POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE
-PostDown = iptables -D INPUT -p udp --dport ${SERVER_PORT} -j ACCEPT
-PostDown = iptables -D FORWARD -i ${SERVER_PUB_NIC} -o ${SERVER_WG_NIC} -j ACCEPT
-PostDown = iptables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT
-PostDown = iptables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE
-PostDown = ip6tables -D FORWARD -i ${SERVER_WG_NIC} -j ACCEPT
-PostDown = ip6tables -t nat -D POSTROUTING -o ${SERVER_PUB_NIC} -j MASQUERADE" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
+		echo "PostUp = /etc/wireguard/helper/add_route.sh
+PostDown = /etc/wireguard/helper/add_route.sh" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 	fi
+
+	#Tạo file routing cho server
+	mkdir /etc/wireguard/helper >/dev/null 2>&1
+	echo "#!/bin/bash
+/sbin/iptables -t nat -I POSTROUTING 1 -s $ALLOWED_IPS -o $SERVER_PUB_NIC -j MASQUERADE
+/sbin/iptables -I INPUT 1 -i $SERVER_WG_NIC -j ACCEPT
+/sbin/iptables -I FORWARD 1 -i $SERVER_PUB_NIC -o $SERVER_WG_NIC -j ACCEPT
+/sbin/iptables -I FORWARD 1 -i $SERVER_WG_NIC -o $SERVER_PUB_NIC -j ACCEPT
+/sbin/iptables -I INPUT 1 -i $SERVER_PUB_NIC -p udp --dport $SERVER_PORT -j ACCEPT
+" > /etc/wireguard/helper/add_route.sh
+
+	echo "#!/bin/bash
+/sbin/iptables -t nat -D POSTROUTING 1 -s $ALLOWED_IPS -o $SERVER_PUB_NIC -j MASQUERADE
+/sbin/iptables -D INPUT 1 -i $SERVER_WG_NIC -j ACCEPT
+/sbin/iptables -D FORWARD 1 -i $SERVER_PUB_NIC -o $SERVER_WG_NIC -j ACCEPT
+/sbin/iptables -D FORWARD 1 -i $SERVER_WG_NIC -o $SERVER_PUB_NIC -j ACCEPT
+/sbin/iptables -D INPUT 1 -i $SERVER_PUB_NIC -p udp --dport $SERVER_PORT -j ACCEPT
+" > /etc/wireguard/helper/rm_route.sh
+
+	chmod +x /etc/wireguard/helper/add_route.sh
+	chmod +x /etc/wireguard/helper/rm_route.sh
 
 	# Enable routing on the server
 	echo "net.ipv4.ip_forward = 1
@@ -263,7 +247,7 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 	systemctl enable "wg-quick@${SERVER_WG_NIC}"
 
 	newClient
-	echo -e "${GREEN}If you want to add more clients, you simply need to run this script another time!${NC}"
+	echo -e "${GREEN} Nếu muốn thêm VPN Client vui lòng chạy lại script${NC}"
 
 	# Check if WireGuard is running
 	systemctl is-active --quiet "wg-quick@${SERVER_WG_NIC}"
@@ -275,25 +259,17 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 		echo -e "${ORANGE}You can check if WireGuard is running with: systemctl status wg-quick@${SERVER_WG_NIC}${NC}"
 		echo -e "${ORANGE}If you get something like \"Cannot find device ${SERVER_WG_NIC}\", please reboot!${NC}"
 	else # WireGuard is running
-		echo -e "\n${GREEN}WireGuard is running.${NC}"
-		echo -e "${GREEN}You can check the status of WireGuard with: systemctl status wg-quick@${SERVER_WG_NIC}\n\n${NC}"
+		echo -e "\n${GREEN}WireGuard đang chạy.${NC}"
+		echo -e "${GREEN}Kiểm tra trạng thái bằng lệnh: systemctl status wg-quick@${SERVER_WG_NIC}\n\n${NC}"
 		echo -e "${ORANGE}If you don't have internet connectivity from your client, try to reboot the server.${NC}"
 	fi
 }
 
 function newClient() {
-	# If SERVER_PUB_IP is IPv6, add brackets if missing
-	if [[ ${SERVER_PUB_IP} =~ .*:.* ]]; then
-		if [[ ${SERVER_PUB_IP} != *"["* ]] || [[ ${SERVER_PUB_IP} != *"]"* ]]; then
-			SERVER_PUB_IP="[${SERVER_PUB_IP}]"
-		fi
-	fi
 	ENDPOINT="${SERVER_PUB_IP}:${SERVER_PORT}"
-
 	echo ""
-	echo "Client configuration"
+	echo "Cấu hình cho client"
 	echo ""
-	echo "The client name must consist of alphanumeric character(s). It may also include underscores or dashes and can't exceed 15 chars."
 
 	until [[ ${CLIENT_NAME} =~ ^[a-zA-Z0-9_-]+$ && ${CLIENT_EXISTS} == '0' && ${#CLIENT_NAME} -lt 16 ]]; do
 		read -rp "Client name: " -e CLIENT_NAME
@@ -301,7 +277,7 @@ function newClient() {
 
 		if [[ ${CLIENT_EXISTS} != 0 ]]; then
 			echo ""
-			echo -e "${ORANGE}A client with the specified name was already created, please choose another name.${NC}"
+			echo -e "${ORANGE}Tên này đã được tạo, vui lòng chọn tên khác.${NC}"
 			echo ""
 		fi
 	done
@@ -315,7 +291,7 @@ function newClient() {
 
 	if [[ ${DOT_EXISTS} == '1' ]]; then
 		echo ""
-		echo "The subnet configured supports only 253 clients."
+		echo "Tối đa 253 clients."
 		exit 1
 	fi
 
@@ -332,55 +308,41 @@ function newClient() {
 		fi
 	done
 
-	BASE_IP=$(echo "$SERVER_WG_IPV6" | awk -F '::' '{ print $1 }')
-	until [[ ${IPV6_EXISTS} == '0' ]]; do
-		read -rp "Client WireGuard IPv6: ${BASE_IP}::" -e -i "${DOT_IP}" DOT_IP
-		CLIENT_WG_IPV6="${BASE_IP}::${DOT_IP}"
-		IPV6_EXISTS=$(grep -c "${CLIENT_WG_IPV6}/128" "/etc/wireguard/${SERVER_WG_NIC}.conf")
-
-		if [[ ${IPV6_EXISTS} != 0 ]]; then
-			echo ""
-			echo -e "${ORANGE}A client with the specified IPv6 was already created, please choose another IPv6.${NC}"
-			echo ""
-		fi
-	done
-
 	# Generate key pair for the client
 	CLIENT_PRIV_KEY=$(wg genkey)
 	CLIENT_PUB_KEY=$(echo "${CLIENT_PRIV_KEY}" | wg pubkey)
 	CLIENT_PRE_SHARED_KEY=$(wg genpsk)
 
-	HOME_DIR=$(getHomeDirForClient "${CLIENT_NAME}")
+	HOME_DIR="/etc/wireguard/clients"
 
 	# Create client file and add the server as a peer
 	echo "[Interface]
 PrivateKey = ${CLIENT_PRIV_KEY}
-Address = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128
-DNS = ${CLIENT_DNS_1},${CLIENT_DNS_2}
-
+Address = ${CLIENT_WG_IPV4}/32
+PostUp = /etc/wireguard/helper/add_route.sh
+PostDown = /etc/wireguard/helper/rm_route.sh
+DNS = ${CLIENT_DNS_1} ${CLIENT_DNS_2}
 [Peer]
 PublicKey = ${SERVER_PUB_KEY}
-PresharedKey = ${CLIENT_PRE_SHARED_KEY}
 Endpoint = ${ENDPOINT}
-AllowedIPs = ${ALLOWED_IPS}" >"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+AllowedIPs = 0.0.0.0/0" >"${HOME_DIR}/${CLIENT_NAME}.conf"
 
 	# Add the client as a peer to the server
 	echo -e "\n### Client ${CLIENT_NAME}
 [Peer]
 PublicKey = ${CLIENT_PUB_KEY}
-PresharedKey = ${CLIENT_PRE_SHARED_KEY}
-AllowedIPs = ${CLIENT_WG_IPV4}/32,${CLIENT_WG_IPV6}/128" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
+AllowedIPs = ${CLIENT_WG_IPV4}/32" >>"/etc/wireguard/${SERVER_WG_NIC}.conf"
 
 	wg syncconf "${SERVER_WG_NIC}" <(wg-quick strip "${SERVER_WG_NIC}")
 
 	# Generate QR code if qrencode is installed
 	if command -v qrencode &>/dev/null; then
 		echo -e "${GREEN}\nHere is your client config file as a QR Code:\n${NC}"
-		qrencode -t ansiutf8 -l L <"${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+		qrencode -t ansiutf8 -l L <"${HOME_DIR}/${CLIENT_NAME}.conf"
 		echo ""
 	fi
 
-	echo -e "${GREEN}Your client config file is in ${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf${NC}"
+	echo -e "${GREEN}Your client config file is in ${HOME_DIR}/${CLIENT_NAME}.conf${NC}"
 }
 
 function listClients() {
@@ -420,8 +382,8 @@ function revokeClient() {
 	sed -i "/^### Client ${CLIENT_NAME}\$/,/^$/d" "/etc/wireguard/${SERVER_WG_NIC}.conf"
 
 	# remove generated client file
-	HOME_DIR=$(getHomeDirForClient "${CLIENT_NAME}")
-	rm -f "${HOME_DIR}/${SERVER_WG_NIC}-client-${CLIENT_NAME}.conf"
+	HOME_DIR="/etc/wireguard/clients"
+	rm -f "${HOME_DIR}/${CLIENT_NAME}.conf"
 
 	# restart wireguard to apply changes
 	wg syncconf "${SERVER_WG_NIC}" <(wg-quick strip "${SERVER_WG_NIC}")
@@ -429,9 +391,8 @@ function revokeClient() {
 
 function uninstallWg() {
 	echo ""
-	echo -e "\n${RED}WARNING: This will uninstall WireGuard and remove all the configuration files!${NC}"
-	echo -e "${ORANGE}Please backup the /etc/wireguard directory if you want to keep your configuration files.\n${NC}"
-	read -rp "Do you really want to remove WireGuard? [y/n]: " -e REMOVE
+	echo -e "\n${RED}WARNING: Lựa chọn này sẽ gỡ cài đặt WireGuard và xóa các cấu hình clients!${NC}"
+	read -rp "Tiếp tục gỡ WireGuard? [y/n]: " -e REMOVE
 	REMOVE=${REMOVE:-n}
 	if [[ $REMOVE == 'y' ]]; then
 		checkOS
@@ -479,7 +440,7 @@ function uninstallWg() {
 		fi
 	else
 		echo ""
-		echo "Removal aborted!"
+		echo "Hủy gỡ cài đặt WireGuard!"
 	fi
 }
 
@@ -490,13 +451,13 @@ function manageMenu() {
 	echo "It looks like WireGuard is already installed."
 	echo ""
 	echo "What do you want to do?"
-	echo "   1) Add a new user"
-	echo "   2) List all users"
-	echo "   3) Revoke existing user"
+	echo "   1) Tạo thêm clients"
+	echo "   2) Danh sách clients"
+	echo "   3) Xóa clients"
 	echo "   4) Uninstall WireGuard"
-	echo "   5) Exit"
+	echo "   5) Thoát"
 	until [[ ${MENU_OPTION} =~ ^[1-5]$ ]]; do
-		read -rp "Select an option [1-5]: " MENU_OPTION
+		read -rp "Lựa chọn 1 tùy chọn [1-5]: " MENU_OPTION
 	done
 	case "${MENU_OPTION}" in
 	1)
