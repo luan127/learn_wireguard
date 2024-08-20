@@ -8,7 +8,7 @@ NC='\033[0m'
 
 function isRoot() {
 	if [ "${EUID}" -ne 0 ]; then
-		echo "You need to run this script as root"
+		echo "Chạy với quyền root"
 		exit 1
 	fi
 }
@@ -65,33 +65,6 @@ function checkOS() {
 	fi
 }
 
-# function getHomeDirForClient() {
-# 	local CLIENT_NAME=$1
-
-# 	if [ -z "${CLIENT_NAME}" ]; then
-# 		echo "Error: getHomeDirForClient() requires a client name as argument"
-# 		exit 1
-# 	fi
-
-# 	# Home directory of the user, where the client configuration will be written
-# 	if [ -e "/home/${CLIENT_NAME}" ]; then
-# 		# if $1 is a user name
-		
-# 	elif [ "${SUDO_USER}" ]; then
-# 		# if not, use SUDO_USER
-# 		if [ "${SUDO_USER}" == "root" ]; then
-# 			# If running sudo as root
-# 			HOME_DIR="/root"
-# 		else
-# 			HOME_DIR="/home/${SUDO_USER}"
-# 		fi
-# 	else
-# 		# if not SUDO_USER, use /root
-# 		HOME_DIR="/root"
-# 	fi
-
-# 	echo "$HOME_DIR"
-# }
 
 function initialCheck() {
 	isRoot
@@ -261,7 +234,7 @@ net.ipv6.conf.all.forwarding = 1" >/etc/sysctl.d/wg.conf
 	else # WireGuard is running
 		echo -e "\n${GREEN}WireGuard đang chạy.${NC}"
 		echo -e "${GREEN}Kiểm tra trạng thái bằng lệnh: systemctl status wg-quick@${SERVER_WG_NIC}\n\n${NC}"
-		echo -e "${ORANGE}If you don't have internet connectivity from your client, try to reboot the server.${NC}"
+		echo -e "${ORANGE}Nếu mạng không hoạt động, thử reboot lại server.${NC}"
 	fi
 }
 
@@ -445,12 +418,9 @@ function uninstallWg() {
 }
 
 function manageMenu() {
-	echo "Welcome to WireGuard-install!"
-	echo "The git repository is available at: https://github.com/angristan/wireguard-install"
+	echo "WireGuard đã được cài."
 	echo ""
-	echo "It looks like WireGuard is already installed."
-	echo ""
-	echo "What do you want to do?"
+	echo "Tùy chọn:"
 	echo "   1) Tạo thêm clients"
 	echo "   2) Danh sách clients"
 	echo "   3) Xóa clients"
